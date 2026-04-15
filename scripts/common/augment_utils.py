@@ -56,15 +56,15 @@ def simple_augment(sentence: str) -> str:
                     return f"{filler}，{sentence}"
 
     # 2. 添加句尾语气词
-    elif op == "add_tail":
-        tail = random.choice(TAILS)
-        raw = re.sub(r'[。！？!?]+$', '', sentence.rstrip())
-        raw = raw.rstrip()
-        if not raw:
-            return sentence
-        if raw[-1] in TAIL_WORDS:
-            return sentence
-        return raw + tail
+    # elif op == "add_tail":
+    #     tail = random.choice(TAILS)
+    #     raw = re.sub(r'[。！？!?]+$', '', sentence.rstrip())
+    #     raw = raw.rstrip()
+    #     if not raw:
+    #         return sentence
+    #     if raw[-1] in TAIL_WORDS:
+    #         return sentence
+    #     return raw + tail
 
     # 3. 同义词替换
     elif op == "synonym_replace":
@@ -75,49 +75,29 @@ def simple_augment(sentence: str) -> str:
         filler = random.choice(FILLERS)
         return f"{filler}，{sentence}"
 
-    # 4. 结巴/重复模拟
+    # 4. 结巴/重复模拟（只重复第一个汉字，避免整句重复）
     elif op == "stutter":
-        # 避免句子太短
+        # 句子太短不处理
         if len(sentence) < 2:
             return sentence
         
-        # 两种结巴模式：首字重复 / 首词重复（随机选择）
-        mode = random.choice(["char", "word"])
+        # 找到第一个汉字字符（避免对标点、数字进行重复）
+        match = re.search(r'[\u4e00-\u9fa5]', sentence)
+        if not match:
+            # 没有汉字，尝试重复第一个字符（字母或数字）
+            if len(sentence) > 1:
+                return sentence[0] * 2 + sentence[1:]
+            return sentence
         
-        if mode == "char":
-            # 重复第一个汉字（跳过非汉字字符如标点、数字）
-            # 找到第一个汉字字符
-            match = re.search(r'[\u4e00-\u9fa5]', sentence)
-            if match:
-                char = match.group()
-                # 重复1~2次（“你” -> “你你” 或 “你你你”）
-                repeat_count = random.randint(1, 2)
-                stuttered = char * (repeat_count + 1)   # 原字符本身算一次
-                # 替换第一个匹配的字符
-                new_sentence = sentence[:match.start()] + stuttered + sentence[match.start()+1:]
-                return new_sentence
-            else:
-                # 没有中文，尝试重复第一个字符
-                if len(sentence) > 1:
-                    return sentence[0] * 2 + sentence[1:]
-                return sentence
-        
-        else:  # word模式
-            # 按空格或标点切分简单获取第一个“词”（中文词可能需要更复杂处理，这里简单按空格切分）
-            # 若没有空格，则按字符取前2个字符作为一个词
-            words = sentence.split()
-            if words:
-                first_word = words[0]
-                # 避免重复过长词（如超过4个字只重复前2字？简单处理：重复整个词）
-                repeat_count = random.randint(1, 2)
-                stuttered_word = first_word * (repeat_count + 1)   # “我想” -> “我想我想”
-                return stuttered_word + " " + " ".join(words[1:]) if len(words) > 1 else stuttered_word
-            else:
-                # 无空格，回退到字符模式
-                if len(sentence) > 1:
-                    return sentence[0] * 2 + sentence[1:]
-                return sentence
-
+        char = match.group()
+        # 随机重复1~2次（即总共2或3个相同字符）
+        repeat_count = random.randint(1, 2)
+        stuttered_char = char * (repeat_count + 1)
+        # 替换第一个匹配的汉字
+        start = match.start()
+        end = match.end()
+        new_sentence = sentence[:start] + stuttered_char + sentence[end:]
+        return new_sentence
     return sentence
 
 def augment_cell(cell_value, num_variants=NUM_VARIANTS) -> str:
