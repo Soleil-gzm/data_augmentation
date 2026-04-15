@@ -3,8 +3,8 @@ import random
 import re
 
 # ================= 配置 =================
-INPUT_EXCEL = "data/test1.xlsx"      # 输入文件名
-OUTPUT_EXCEL = "output_excel/output.xlsx"    # 输出文件名
+INPUT_EXCEL = "data/all_data.xlsx"      # 输入文件名
+OUTPUT_EXCEL = "output_excel/all_output.xlsx"    # 输出文件名
 NUM_VARIANTS = 3                # 每个句子生成的变体数量
 
 # 语气词（只用于插入，不改变语义）
