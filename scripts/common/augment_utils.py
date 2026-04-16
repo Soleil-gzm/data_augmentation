@@ -4,6 +4,7 @@ import re
 import pandas as pd
 from nlpcda import Homophone
 import logging
+from nlpcda import RandomDeleteChar
 
 # ================= 可配置参数 =================
 NUM_VARIANTS = 3                    # 每个原句生成几个变体
@@ -32,6 +33,9 @@ NEGATION_WORDS = set(["不", "没", "无", "别", "不要", "不用", "未曾"])
 # # 自定义同音字词库路径（相对于项目根目录）
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HOMOPHONE_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'Homophone_tab.txt')
+
+# 随机删除字符增强器（模拟漏字/吞音）
+_random_delete_aug = RandomDeleteChar(create_num=3, change_rate=0.2, seed=42)
 
 print(f"[DEBUG] 项目根目录: {BASE_DIR}")
 print(f"[DEBUG] 期望的词库路径: {HOMOPHONE_DICT_PATH}")
@@ -70,8 +74,12 @@ def simple_augment(sentence: str) -> str:
         return sentence
 
     # 定义操作列表和对应权重（权重之和建议为1.0）
-    op_list = ["insert_filler","add_tail", "synonym_replace", "stutter", "reorder", "homophone"]
+    op_list = ["insert_filler","synonym_replace", "stutter", "reorder", "homophone", "random_delete"]
     weights = [0.25, 0.20, 0.10, 0.10, 0.10, 0.25]   # 可根据需求修改
+
+    # test 
+    # op_list = ["random_delete"]
+    # weights = [0.9]   # 可根据需求修改
 
     #五种操作类型，可调整权重
     op = random.choices(op_list, weights=weights, k=1)[0]
@@ -143,6 +151,9 @@ def simple_augment(sentence: str) -> str:
     elif op == "homophone":
         return homophone_augment(sentence)
     
+    elif op == "random_delete":
+        return random_delete_augment(sentence)
+
     return sentence
 
 def reorder_sentence(sentence: str) -> str:
@@ -206,6 +217,20 @@ def homophone_augment(sentence: str) -> str:
             return sentence
     except Exception as e:
         print(f"同音字替换出错: {e}")
+        return sentence
+
+def random_delete_augment(sentence: str) -> str:
+    """使用随机删除字符进行增强（模拟漏字、吞音）"""
+    if not isinstance(sentence, str) or len(sentence.strip()) == 0:
+        return sentence
+    try:
+        results = _random_delete_aug.replace(sentence)
+        if len(results) > 1:
+            return random.choice(results[1:])   # 随机选择一个变体
+        else:
+            return sentence
+    except Exception as e:
+        print(f"随机删除字符出错: {e}")
         return sentence
 
 ''' ==================== excel 格式处理 ===================='''
