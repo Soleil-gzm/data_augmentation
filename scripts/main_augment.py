@@ -13,7 +13,7 @@ from common.augment_utils import move_column_to_right
 
 # ================= 日志配置 =================
 def setup_logger(log_dir):
-    """配置日志：同时输出到控制台和文件，并确保实时刷新"""
+    """配置日志：输出到文件，并确保实时刷新"""
     os.makedirs(log_dir, exist_ok=True)
     log_filename = f"augment_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     log_path = os.path.join(log_dir, log_filename)
@@ -23,11 +23,11 @@ def setup_logger(log_dir):
     if logger.handlers:
         return logger
     
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     
     # 文件处理器（设置 encoding='utf-8' 避免中文乱码）
     fh = logging.FileHandler(log_path, encoding='utf-8')
-    fh.setLevel(logging.INFO)
+    fh.setLevel(logging.DEBUG)
     
     # 控制台处理器
     ch = logging.StreamHandler()
@@ -42,7 +42,7 @@ def setup_logger(log_dir):
     logger.addHandler(ch)
     
     # 打印日志文件路径（方便确认）
-    logger.info(f"日志文件: {log_path}")
+    logger.info(f"日志文件路径: {log_path}")
     
     return logger
 
@@ -97,7 +97,7 @@ def main():
         output_path = os.path.join(output_dir, output_filename)
     
     os.makedirs(output_dir, exist_ok=True)
-    logger.info(f"输出文件: {output_path}")
+    logger.debug(f"输出文件: {output_path}")
     
     # 读取 Excel
     try:
@@ -108,14 +108,14 @@ def main():
                 logger.error(f"指定的工作表 '{args.sheet}' 不存在，可用: {sheet_names}")
                 sys.exit(1)
             sheet_names = [args.sheet]
-        logger.info(f"待处理的工作表: {sheet_names}")
+        logger.debug(f"待处理的工作表: {sheet_names}")
     except Exception as e:
         logger.error(f"读取Excel失败: {e}")
         sys.exit(1)
     
     output_dict = {}
     for sheet_name in sheet_names:
-        logger.info(f"开始处理工作表: {sheet_name}")
+        logger.debug(f"开始处理工作表: {sheet_name}")
         df = pd.read_excel(xl, sheet_name=sheet_name)
         
         # 查找 human 列
@@ -130,7 +130,7 @@ def main():
             output_dict[sheet_name] = df
             continue
         
-        logger.info(f"找到 human 列: '{human_col}'，开始增强（变体数: {args.num_variants}）...")
+        logger.debug(f"找到 human 列: '{human_col}'，开始增强（变体数: {args.num_variants}）...")
         
         # 动态修改增强参数
         aug_utils.NUM_VARIANTS = args.num_variants
@@ -138,14 +138,13 @@ def main():
         df["human_augmented"] = df[human_col].apply(lambda x: aug_utils.augment_cell(x, num_variants=args.num_variants))
         df = move_column_to_right(df, human_col, "human_augmented")
         
-        # 记录示例（前2行）
         sample = df[[human_col, "human_augmented"]].head(2)
         for idx, row in sample.iterrows():
-            logger.info(f"  示例原句: {row[human_col]}")
-            logger.info(f"  增强后: {row['human_augmented']}")
-        
+            logger.debug(f"  示例原句: {row[human_col]}")
+            logger.debug(f"  增强后: {row['human_augmented']}")
+
         output_dict[sheet_name] = df
-        logger.info(f"工作表 '{sheet_name}' 处理完成，共 {len(df)} 行")
+        logger.debug(f"工作表 '{sheet_name}' 处理完成，共 {len(df)} 行")
     
     # 写入输出文件
     try:
