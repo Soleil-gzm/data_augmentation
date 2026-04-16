@@ -1,6 +1,8 @@
+import os
 import random
 import re
 import pandas as pd
+from nlpcda import Homophone
 
 # ================= 可配置参数 =================
 NUM_VARIANTS = 3                    # 每个原句生成几个变体
@@ -26,6 +28,59 @@ SYNONYMS = {
 # 否定词集合（用于语序打乱时跳过，避免语义反转）
 NEGATION_WORDS = set(["不", "没", "无", "别", "不要", "不用", "未曾"])
 
+# # 自定义同音字词库路径（相对于项目根目录）
+# BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# HOMOPHONE_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'Homophone_tab.txt')
+# # 初始化同音字替换器（如果词库不存在则回退到默认）
+# print(f"[DEBUG] 期望的词库路径: {HOMOPHONE_DICT_PATH}")
+# if not os.path.exists(HOMOPHONE_DICT_PATH):
+#     print(f"[WARN] 词库文件不存在，将使用默认词库（可能产生生僻字）")
+#     _homophone_aug = Homophone(create_num=3, change_rate=0.3, seed=42)
+# else:
+#     try:
+#         _homophone_aug = Homophone(base_file=HOMOPHONE_DICT_PATH, create_num=3, change_rate=0.3, seed=42)
+#         print(f"[INFO] 成功加载自定义词库: {HOMOPHONE_DICT_PATH}")
+#     except Exception as e:
+#         print(f"[ERROR] 加载自定义词库失败: {e}，使用默认词库")
+#         _homophone_aug = Homophone(create_num=3, change_rate=0.3, seed=42)
+
+# 获取项目根目录（scripts/common/augment_utils.py -> 向上三级）
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+HOMOPHONE_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'Homophone_tab.txt')
+
+print(f"[DEBUG] 项目根目录: {BASE_DIR}")
+print(f"[DEBUG] 期望的词库路径: {HOMOPHONE_DICT_PATH}")
+
+if not os.path.exists(HOMOPHONE_DICT_PATH):
+    print(f"[WARN] 词库文件不存在，将使用默认词库（可能产生生僻字）")
+    _homophone_aug = Homophone(create_num=3, change_rate=0.3, seed=42)
+else:
+    try:
+        _homophone_aug = Homophone(base_file=HOMOPHONE_DICT_PATH, create_num=3, change_rate=0.3, seed=42)
+        print(f"[INFO] 成功加载自定义词库: {HOMOPHONE_DICT_PATH}")
+    except Exception as e:
+        print(f"[ERROR] 加载自定义词库失败: {e}，使用默认词库")
+        _homophone_aug = Homophone(create_num=3, change_rate=0.3, seed=42)
+
+
+
+
+'''
+================= 增强方法权重配置 =================
+说明：调整 weights 列表中的数值可以控制每种增强方法被选中的概率。
+顺序必须与 op 列表一致，权重之和不必为 1，程序会自动归一化。
+
+方法说明：
+- insert_filler  : 句首或句中插入语气词（如“嗯”、“那个”）
+- add_tail       : 句尾添加语气词（如“吧”、“啊”）
+- synonym_replace: 使用自定义同义词映射替换（轻量）
+- stutter        : 结巴模拟（重复第一个汉字）
+- reorder        : 语序打乱（仅交换逗号前后）
+- nlpcda_synonym : 调用 nlpcda 库进行同义词替换（更丰富）
+
+=================================================
+'''
+
 # ================= 增强函数 =================
 
 def simple_augment(sentence: str) -> str:
@@ -33,12 +88,17 @@ def simple_augment(sentence: str) -> str:
     if not isinstance(sentence, str) or len(sentence.strip()) == 0:
         return sentence
 
-    # 五种操作类型，可调整权重
-    op = random.choices(
-        ["insert_filler", "add_tail", "synonym_replace", "stutter", "reorder"],
-        weights=[0.25, 0, 0.2, 0.25, 0.3],
-        k=1
-    )[0]
+    # 定义操作列表和对应权重（权重之和建议为1.0）
+    op_list = ["insert_filler", "synonym_replace", "stutter", "reorder", "nlpcda_synonym","homophone"]
+    weights = [0.25, 0.20, 0.10, 0.10, 0.10, 0.25]   # 可根据需求修改
+
+    #五种操作类型，可调整权重
+    op = random.choices(op_list, weights=weights, k=1)[0]
+    # op = random.choices(
+    #     ["insert_filler", "add_tail", "synonym_replace", "stutter", "reorder"],
+    #     weights=[0.25, 0, 0.2, 0.25, 0.3],
+    #     k=1
+    # )[0]
 
     # 1. 插入语气词（句首或句中第一个标点后）
     if op == "insert_filler":
@@ -97,54 +157,59 @@ def simple_augment(sentence: str) -> str:
     # 5. 语序打乱（倒装/成分移位）
     elif op == "reorder":
         return reorder_sentence(sentence)
-
+     
+    # 6. 同音字替换
+    elif op == "homophone":
+        return homophone_augment(sentence)
+    
     return sentence
 
-
 def reorder_sentence(sentence: str) -> str:
-    """对句子进行安全的语序打乱（倒装），返回新句子；若不适合则返回原句"""
+    """安全的语序打乱：交换逗号前后，或简单谓语前置"""
     if len(sentence) < 5:
         return sentence
 
-    # 检测否定词，若有则跳过（避免语义反转）
+    # 检测否定词，若有则跳过
     if any(neg in sentence for neg in NEGATION_WORDS):
         return sentence
 
-    # 模式1：谓语提前（将第一个动词短语提前到句首）
-    verb_match = re.search(r'([还让帮给告诉说解释]\w*)', sentence)
-    if verb_match:
-        verb = verb_match.group()
-        before_verb = sentence[:verb_match.start()].strip()
-        after_verb = sentence[verb_match.end():].strip()
-        if before_verb and after_verb:
-            # 构造倒装句：动词 + 之后的内容 + 之前的主语
-            new_sent = f"{verb}{after_verb}，{before_verb}"
-            return new_sent
+    # 保存末尾标点
+    end_punct = ''
+    if sentence and sentence[-1] in '。！？!?':
+        end_punct = sentence[-1]
+        sentence = sentence[:-1].rstrip()
 
-    # 模式2：对于“让/帮”结构，将动作部分提前
-    let_match = re.search(r'(让|帮)(\S+?)(\w+)', sentence)
-    if let_match:
-        let_word = let_match.group(1)
-        person = let_match.group(2)
-        action = let_match.group(3)
-        before = sentence[:let_match.start()].strip()
-        after = sentence[let_match.end():].strip()
-        new_sent = f"{action}{after}，{before}{let_word}{person}"
-        return new_sent
-
-    # 模式3：简单交换逗号前后（如果句子有逗号）
-    if ',' in sentence:
-        parts = sentence.split(',', 1)
-        if len(parts) == 2 and parts[0].strip() and parts[1].strip():
-            return f"{parts[1].strip()}，{parts[0].strip()}"
+    # 模式1：交换逗号前后（最安全）
     if '，' in sentence:
         parts = sentence.split('，', 1)
         if len(parts) == 2 and parts[0].strip() and parts[1].strip():
-            return f"{parts[1].strip()}，{parts[0].strip()}"
+            new_sent = f"{parts[1].strip()}，{parts[0].strip()}"
+            return new_sent + end_punct
+    if ',' in sentence:
+        parts = sentence.split(',', 1)
+        if len(parts) == 2 and parts[0].strip() and parts[1].strip():
+            new_sent = f"{parts[1].strip()}，{parts[0].strip()}"
+            return new_sent + end_punct
 
-    # 如果没有合适变换，返回原句
-    return sentence
 
+    # 模式2：简单谓语前置（匹配“我/你 + 已经/也/就 + 动词 + 了/过 + 其他”）
+    # 例如“我已经还了” -> “还了，我已经”
+    match = re.match(r'^(我|你)(已经|也|就|都)?(\w+?)(了|过)?(.*)$', sentence)
+    if match:
+        subject = match.group(1)      # 我/你
+        adverb = match.group(2) or ''
+        verb = match.group(3)         # 动词
+        aspect = match.group(4) or '' # 了/过
+        rest = match.group(5).strip()
+        if verb and len(verb) >= 1:
+            # 构造倒装：动词+了/过 + 其他 + 主语
+            new_sent = f"{verb}{aspect}{rest}，{subject}{adverb}"
+            # 清理多余空格
+            new_sent = re.sub(r'\s+', '', new_sent)
+            return new_sent + end_punct
+
+    # 无变换则返回原句
+    return sentence + end_punct
 
 def augment_cell(cell_value, num_variants=NUM_VARIANTS) -> str:
     """处理一个单元格（可能含 '/' 分隔的多条句子）"""
@@ -169,3 +234,19 @@ def move_column_to_right(df, col_name, new_col_name):
     cols.remove(new_col_name)
     cols.insert(idx + 1, new_col_name)
     return df[cols]
+
+def homophone_augment(sentence: str) -> str:
+    """使用同音字替换进行增强（模拟常见打字错误）"""
+    if not isinstance(sentence, str) or len(sentence.strip()) == 0:
+        return sentence
+    try:
+        results = _homophone_aug.replace(sentence)
+        # results[0] 是原句，后续为变体
+        if len(results) > 1:
+            # 随机选择一个变体（也可以固定取第一个变体）
+            return random.choice(results[1:])
+        else:
+            return sentence
+    except Exception as e:
+        print(f"同音字替换出错: {e}")
+        return sentence

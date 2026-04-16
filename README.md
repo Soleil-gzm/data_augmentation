@@ -17,3 +17,8 @@ Data_Augmentation_human/
 │   └── main_augment.py             # 主入口脚本（命令行参数、日志、流程控制）
 ├── .gitignore                      # Git 忽略文件配置
 └── README.md                       # 项目说明文档（待完善）
+
+# nlpcda模型下载网址 https://github.com/ZhuiyiTechnology/pretrained-models?tab=readme-ov-file
+nlpcda github: https://gitcode.com/gh_mirrors/nl/nlpcda/blob/master/README.md
+model1: SimBERT Tiny
+model2: SimBERT Small
