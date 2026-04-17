@@ -2,7 +2,7 @@ import os
 import random
 import re
 import pandas as pd
-from nlpcda import Homophone, RandomDeleteChar,Randomword
+from nlpcda import Homophone, RandomDeleteChar,Randomword,Similarword
 
 # ================= 可配置参数 =================
 NUM_VARIANTS = 3                    # 每个原句生成几个变体（默认）
@@ -28,6 +28,20 @@ NEGATION_WORDS = set(["不", "没", "无", "别", "不要", "不用", "未曾"])
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HOMOPHONE_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'Homophone_tab.txt')
 ENTITY_FILE = os.path.join(BASE_DIR, 'resources', 'bank.txt')
+# 随机同义词替换增强器（使用自定义同义词表，可选）
+# 自定义同义词表路径（每行格式：id 同义词1 同义词2 ...）
+SIMILARWORD_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'synonyms.txt')
+
+if os.path.exists(SIMILARWORD_DICT_PATH):
+    try:
+        _similarword_aug = Similarword(base_file=SIMILARWORD_DICT_PATH, create_num=3, change_rate=0.2, seed=42)
+        print(f"[INFO] 成功加载自定义同义词词库: {SIMILARWORD_DICT_PATH}")
+    except Exception as e:
+        print(f"[ERROR] 加载自定义同义词词库失败: {e}，使用默认词库")
+        _similarword_aug = Similarword(create_num=3, change_rate=0.2, seed=42)
+else:
+    print(f"[WARN] 自定义同义词词库不存在，使用默认词库")
+    _similarword_aug = Similarword(create_num=3, change_rate=0.2, seed=42)
 
 if not os.path.exists(HOMOPHONE_DICT_PATH):
     print(f"[WARN] 词库文件不存在，将使用默认词库（可能产生生僻字）")
@@ -195,6 +209,20 @@ def apply_random_entity_replace(sentence: str) -> str:
     except Exception as e:
         print(f"随机实体替换出错: {e}")
         return sentence
+    
+def apply_similarword(sentence: str) -> str:
+    """使用同义词替换进行增强（替换词语为同义词）"""
+    if not isinstance(sentence, str) or len(sentence.strip()) == 0:
+        return sentence
+    try:
+        results = _similarword_aug.replace(sentence)
+        if len(results) > 1:
+            return random.choice(results[1:])
+        else:
+            return sentence
+    except Exception as e:
+        print(f"同义词替换出错: {e}")
+        return sentence
 
 # ================= 多步叠加增强函数 =================
 
@@ -207,6 +235,7 @@ AUGMENT_FUNCS = [
     apply_homophone,
     apply_random_delete,
     apply_random_entity_replace,
+    apply_similarword,
 ]
 
 def multi_step_augment(sentence: str, min_steps=1, max_steps=3) -> str:
