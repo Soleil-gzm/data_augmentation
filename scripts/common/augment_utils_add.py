@@ -1,0 +1,224 @@
+import os
+import random
+import re
+import pandas as pd
+from nlpcda import Homophone, RandomDeleteChar
+
+# ================= 可配置参数 =================
+NUM_VARIANTS = 3                    # 每个原句生成几个变体（默认）
+
+# 语气词库
+FILLERS = ["嗯", "那个", "就是", "呃", "啊"]
+TAILS = ["吧", "啊", "哦", "呗"]
+TAIL_WORDS = set(["吧", "啊", "哦", "呗", "嗯", "啦", "呀", "嘛", "呐", "哈", "了", "吗", "呢"])
+
+# 自定义同义词映射
+SYNONYMS = {
+    "睡觉": ["休息", "睡一下"],
+    "晚点": ["晚些", "过一会儿"],
+    "打": ["联系", "打电话"],
+    "还": ["偿还", "归还"],
+    "催": ["催促", "追"],
+}
+
+# 否定词集合（语序打乱时跳过）
+NEGATION_WORDS = set(["不", "没", "无", "别", "不要", "不用", "未曾"])
+
+# ================= 同音字替换器初始化 =================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+HOMOPHONE_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'Homophone_tab.txt')
+
+if not os.path.exists(HOMOPHONE_DICT_PATH):
+    print(f"[WARN] 词库文件不存在，将使用默认词库（可能产生生僻字）")
+    _homophone_aug = Homophone(create_num=3, change_rate=0.3, seed=42)
+else:
+    try:
+        _homophone_aug = Homophone(base_file=HOMOPHONE_DICT_PATH, create_num=3, change_rate=0.3, seed=42)
+        print(f"[INFO] 成功加载自定义词库: {HOMOPHONE_DICT_PATH}")
+    except Exception as e:
+        print(f"[ERROR] 加载自定义词库失败: {e}，使用默认词库")
+        _homophone_aug = Homophone(create_num=3, change_rate=0.3, seed=42)
+
+# 随机删除增强器
+_random_delete_aug = RandomDeleteChar(create_num=3, change_rate=0.2, seed=42)
+
+# ================= 独立增强函数（可叠加） =================
+
+def apply_insert_filler(sentence: str) -> str:
+    """插入语气词（句首或句中）"""
+    filler = random.choice(FILLERS)
+    if random.random() < 0.8:
+        return f"{filler}，{sentence}"
+    else:
+        match = re.search(r'[，,。？!]', sentence)
+        if match:
+            pos = match.end()
+            if pos > len(sentence) * 0.8:
+                return f"{filler}，{sentence}"
+            return sentence[:pos] + filler + "，" + sentence[pos:]
+        else:
+            words = sentence.split()
+            if len(words) >= 2:
+                return words[0] + filler + "，" + " ".join(words[1:])
+            else:
+                return f"{filler}，{sentence}"
+
+def apply_synonym_replace(sentence: str) -> str:
+    """自定义同义词替换"""
+    for word, syns in SYNONYMS.items():
+        if word in sentence:
+            new_word = random.choice(syns)
+            return sentence.replace(word, new_word, 1)
+    # 降级：插入语气词
+    filler = random.choice(FILLERS)
+    return f"{filler}，{sentence}"
+
+def apply_stutter(sentence: str) -> str:
+    """结巴模拟（重复第一个汉字）"""
+    if len(sentence) < 2:
+        return sentence
+    match = re.search(r'[\u4e00-\u9fa5]', sentence)
+    if not match:
+        if len(sentence) > 1:
+            return sentence[0] * 2 + sentence[1:]
+        return sentence
+    char = match.group()
+    repeat_count = random.randint(1, 2)
+    stuttered_char = char * (repeat_count + 1)
+    start, end = match.start(), match.end()
+    return sentence[:start] + stuttered_char + sentence[end:]
+
+def reorder_sentence(sentence: str) -> str:
+    """语序打乱（交换逗号前后，或简单谓语前置）"""
+    if len(sentence) < 5:
+        return sentence
+    if any(neg in sentence for neg in NEGATION_WORDS):
+        return sentence
+
+    end_punct = ''
+    if sentence and sentence[-1] in '。！？!?':
+        end_punct = sentence[-1]
+        sentence = sentence[:-1].rstrip()
+
+    # 模式1：交换逗号前后
+    if '，' in sentence:
+        parts = sentence.split('，', 1)
+        if len(parts) == 2 and parts[0].strip() and parts[1].strip():
+            new_sent = f"{parts[1].strip()}，{parts[0].strip()}"
+            return new_sent + end_punct
+    if ',' in sentence:
+        parts = sentence.split(',', 1)
+        if len(parts) == 2 and parts[0].strip() and parts[1].strip():
+            new_sent = f"{parts[1].strip()}，{parts[0].strip()}"
+            return new_sent + end_punct
+
+    # 模式2：简单谓语前置
+    match = re.match(r'^(我|你)(已经|也|就|都)?(\w+?)(了|过)?(.*)$', sentence)
+    if match:
+        subject = match.group(1)
+        adverb = match.group(2) or ''
+        verb = match.group(3)
+        aspect = match.group(4) or ''
+        rest = match.group(5).strip()
+        if verb and len(verb) >= 1:
+            new_sent = f"{verb}{aspect}{rest}，{subject}{adverb}"
+            new_sent = re.sub(r'\s+', '', new_sent)
+            return new_sent + end_punct
+
+    return sentence + end_punct
+
+def apply_reorder(sentence: str) -> str:
+    """语序打乱"""
+    return reorder_sentence(sentence)
+
+def homophone_augment(sentence: str) -> str:
+    """同音字替换"""
+    if not isinstance(sentence, str) or len(sentence.strip()) == 0:
+        return sentence
+    try:
+        results = _homophone_aug.replace(sentence)
+        if len(results) > 1:
+            return random.choice(results[1:])
+        else:
+            return sentence
+    except Exception as e:
+        print(f"同音字替换出错: {e}")
+        return sentence
+
+def apply_homophone(sentence: str) -> str:
+    """同音字替换（别名）"""
+    return homophone_augment(sentence)
+
+def random_delete_augment(sentence: str) -> str:
+    """随机删除字符"""
+    if not isinstance(sentence, str) or len(sentence.strip()) == 0:
+        return sentence
+    try:
+        results = _random_delete_aug.replace(sentence)
+        if len(results) > 1:
+            return random.choice(results[1:])
+        else:
+            return sentence
+    except Exception as e:
+        print(f"随机删除字符出错: {e}")
+        return sentence
+
+def apply_random_delete(sentence: str) -> str:
+    """随机删除字符（别名）"""
+    return random_delete_augment(sentence)
+
+# ================= 多步叠加增强函数 =================
+
+# 可用的增强函数列表（可在此处增删或调整顺序）
+AUGMENT_FUNCS = [
+    apply_insert_filler,
+    apply_synonym_replace,
+    apply_stutter,
+    apply_reorder,
+    apply_homophone,
+    apply_random_delete,
+]
+
+def multi_step_augment(sentence: str, min_steps=1, max_steps=3) -> str:
+    """
+    对句子应用多次随机增强（可重复）
+    :param sentence: 原始句子
+    :param min_steps: 最少叠加次数
+    :param max_steps: 最多叠加次数
+    :return: 增强后的句子
+    """
+    if not isinstance(sentence, str) or len(sentence.strip()) == 0:
+        return sentence
+    steps = random.randint(min_steps, max_steps)
+    result = sentence
+    for _ in range(steps):
+        func = random.choice(AUGMENT_FUNCS)
+        result = func(result)
+    return result
+
+def augment_cell_multi(cell_value, num_variants=NUM_VARIANTS, min_steps=1, max_steps=3) -> str:
+    """
+    处理一个单元格（可能含 '/' 分隔的多条句子），对每条句子生成 num_variants 个变体，
+    每个变体通过多次随机叠加得到。
+    """
+    if pd.isna(cell_value):
+        return ""
+    raw_sentences = [s.strip() for s in str(cell_value).split('/') if s.strip()]
+    if not raw_sentences:
+        return ""
+    result = []
+    for sent in raw_sentences:
+        variants = [multi_step_augment(sent, min_steps, max_steps) for _ in range(num_variants)]
+        result.append("/".join(variants))
+    return "/".join(result)
+
+# ================= 辅助函数 =================
+def move_column_to_right(df, col_name, new_col_name):
+    """将新列移动到原列右侧"""
+    cols = df.columns.tolist()
+    if new_col_name not in cols:
+        return df
+    idx = cols.index(col_name)
+    cols.remove(new_col_name)
+    cols.insert(idx + 1, new_col_name)
+    return df[cols]

@@ -75,7 +75,7 @@ def simple_augment(sentence: str) -> str:
 
     # 定义操作列表和对应权重（权重之和建议为1.0）
     op_list = ["insert_filler","synonym_replace", "stutter", "reorder", "homophone", "random_delete"]
-    weights = [0.25, 0.20, 0.10, 0.10, 0.10, 0.25]   # 可根据需求修改
+    weights = [0.20, 0.15, 0.10, 0.10, 0.20, 0.25]   # 可根据需求修改
 
     # test 
     # op_list = ["random_delete"]
