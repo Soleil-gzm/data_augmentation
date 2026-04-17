@@ -4,6 +4,7 @@ data/
 scripts_test/
 logs/
 models/
+.vscode
 
 __pycache__/
 *.pyc
