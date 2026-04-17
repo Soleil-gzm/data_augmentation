@@ -163,3 +163,17 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+'''
+运行命令示例：
+
+# 处理默认文件（data/all_data.xlsx 或 test.xlsx）
+python scripts/main_augment_add.py
+
+# 指定输入文件、叠加次数范围
+python scripts/main_augment_add.py --input data/test.xlsx --min_steps 2 --max_steps 5
+
+# 只处理特定工作表，每个原句生成5个变体
+python scripts/main_augment_add.py --sheet "身份确认" --num_variants 5
+
+'''

@@ -2,7 +2,7 @@ import os
 import random
 import re
 import pandas as pd
-from nlpcda import Homophone, RandomDeleteChar
+from nlpcda import Homophone, RandomDeleteChar,Randomword
 
 # ================= 可配置参数 =================
 NUM_VARIANTS = 3                    # 每个原句生成几个变体（默认）
@@ -27,6 +27,7 @@ NEGATION_WORDS = set(["不", "没", "无", "别", "不要", "不用", "未曾"])
 # ================= 同音字替换器初始化 =================
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HOMOPHONE_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'Homophone_tab.txt')
+ENTITY_FILE = os.path.join(BASE_DIR, 'resources', 'bank.txt')
 
 if not os.path.exists(HOMOPHONE_DICT_PATH):
     print(f"[WARN] 词库文件不存在，将使用默认词库（可能产生生僻字）")
@@ -39,8 +40,22 @@ else:
         print(f"[ERROR] 加载自定义词库失败: {e}，使用默认词库")
         _homophone_aug = Homophone(create_num=3, change_rate=0.3, seed=42)
 
+if os.path.exists(ENTITY_FILE):
+    try:
+        _random_entity_aug = Randomword(base_file=ENTITY_FILE, create_num=3, change_rate=0.2, seed=42)
+        print(f"[INFO] 成功加载自定义实体词库: {ENTITY_FILE}")
+    except Exception as e:
+        print(f"[ERROR] 加载自定义实体词库失败: {e}，使用默认词库")
+        _random_entity_aug = Randomword(create_num=3, change_rate=0.2, seed=42)
+else:
+    print(f"[WARN] 自定义实体词库不存在，使用默认词库")
+    _random_entity_aug = Randomword(create_num=3, change_rate=0.2, seed=42)
+
+
 # 随机删除增强器
 _random_delete_aug = RandomDeleteChar(create_num=3, change_rate=0.2, seed=42)
+# 随机实体替换增强器（模拟不同公司/机构名称）
+_random_entity_aug = Randomword(create_num=3, change_rate=0.2, seed=42)
 
 # ================= 独立增强函数（可叠加） =================
 
@@ -167,6 +182,20 @@ def apply_random_delete(sentence: str) -> str:
     """随机删除字符（别名）"""
     return random_delete_augment(sentence)
 
+def apply_random_entity_replace(sentence: str) -> str:
+    """随机替换句子中的实体（公司/机构名称）"""
+    if not isinstance(sentence, str) or len(sentence.strip()) == 0:
+        return sentence
+    try:
+        results = _random_entity_aug.replace(sentence)
+        if len(results) > 1:
+            return random.choice(results[1:])
+        else:
+            return sentence
+    except Exception as e:
+        print(f"随机实体替换出错: {e}")
+        return sentence
+
 # ================= 多步叠加增强函数 =================
 
 # 可用的增强函数列表（可在此处增删或调整顺序）
@@ -177,6 +206,7 @@ AUGMENT_FUNCS = [
     apply_reorder,
     apply_homophone,
     apply_random_delete,
+    apply_random_entity_replace,
 ]
 
 def multi_step_augment(sentence: str, min_steps=1, max_steps=3) -> str:
