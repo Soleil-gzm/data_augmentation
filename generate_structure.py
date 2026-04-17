@@ -41,27 +41,6 @@ def build_tree(files):
     walk(tree)
     return lines
 
-# def main():
-#     project_path = "/home/GUO_Zimeng/coding/Data_Augmentation_human"  # 请修改为你的实际路径
-#     readme_path = os.path.join(project_path, "README.md")
-    
-#     files = get_git_tracked_files(project_path)
-#     if not files:
-#         print("未获取到 Git 跟踪的文件，请确保在 Git 仓库中运行")
-#         return
-    
-#     # 生成目录树
-#     tree_lines = build_tree(files)
-#     structure_text = "\n".join(tree_lines)
-    
-#     # 追加到 README.md
-#     with open(readme_path, 'a', encoding='utf-8') as f:
-#         f.write("\n\n## 📁 项目结构（Git 跟踪）\n\n```\n")
-#         f.write(structure_text)
-#         f.write("\n```\n")
-    
-#     print(f"✅ 项目结构已追加到 {readme_path}")
-
 def main():
     project_path = "/home/GUO_Zimeng/coding/Data_Augmentation_human"
     readme_path = os.path.join(project_path, "README.md")
@@ -82,7 +61,7 @@ def main():
     
     # 追加到 README.md
     with open(readme_path, 'a', encoding='utf-8') as f:
-        f.write("\n\n## 📁 项目结构（Git 跟踪）\n\n```\n")
+        f.write("\n\n## 项目结构\n\n```\n")
         f.write(structure_text)
         f.write("\n```\n")
     
