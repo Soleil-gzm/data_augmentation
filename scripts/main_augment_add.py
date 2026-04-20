@@ -86,7 +86,7 @@ def main():
             output_path = os.path.join(base_dir, output_path)
     else:
         base_name = os.path.splitext(os.path.basename(input_path))[0]
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")        # 自动生成带时间戳的输出文件名，避免覆盖
         output_filename = f"{base_name}_multi_augmented_{timestamp}.xlsx"
         output_path = os.path.join(output_dir, output_filename)
     

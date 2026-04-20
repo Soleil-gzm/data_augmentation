@@ -26,7 +26,7 @@
 ## 项目环境
 
     nlpcda_env.yml
-## @ nlpcda模型下载网址 
+##  nlpcda模型下载网址 
 
     https://github.com/ZhuiyiTechnology/pretrained-models?tab=readme-ov-file
     

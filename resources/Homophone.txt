@@ -1,19 +1,21 @@
-wo	我	窝	喔	握
-ni	你	您	尼	拟
-ta	他	她	它	塌
-hai	还	换	回	环
+wo	我	窝	握
+ni	你	您	尼
+ta	他	她	它
+hai	还 孩 海
+huan 还 荒 换 环 
+jiu 就 酒 旧 
 cui	催	吹	炊	脆
 le	了	啦	咯	勒
 de	的	地	得	底
 zai	在	再	载	仔
-bu	不	部	步	布
-yao	要	药	耀	钥
-you	有	友	又	酉
-zhe	这	者	着	浙
-na	那	哪	纳	呐
-shuo	说	硕	烁	朔
-qian	钱	前	乾	钳
-kuan	款	宽	筐	髋
+bu	不	步	布
+you	有	友	又
+zhe	这	者	着
+na  那	哪	纳	呐
+shuo	说	硕
+dou 都 兜 抖
+qian	钱	前
+kuan	款	宽
 ma	马	码	玛	蚂
 shang	上	尚	赏	晌
 xia	下	夏	吓	暇
@@ -25,7 +27,13 @@ rang	让	嚷	瓤	攘
 zhi	知	支	之	汁
 dao	道	到	倒	盗
 xing	行	形	型	刑
-hao	好	号	浩	耗
+hao	好	号	豪
+si 是 四
+nao 脑 孬 闹
+hui 会 回 挥
+mei 美 没 
+ri 一 力
+hua 滑 话 花
 qian	欠	歉	纤	嵌
 zhai	债	寨	摘	斋
 wu	务	无	吴	五

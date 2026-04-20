@@ -12,26 +12,22 @@ FILLERS = ["嗯", "那个", "就是", "呃", "啊"]
 TAILS = ["吧", "啊", "哦", "呗"]
 TAIL_WORDS = set(["吧", "啊", "哦", "呗", "嗯", "啦", "呀", "嘛", "呐", "哈", "了", "吗", "呢"])
 
-# 自定义同义词映射
-SYNONYMS = {
-    "睡觉": ["休息", "睡一下"],
-    "晚点": ["晚些", "过一会儿"],
-    "打": ["联系", "打电话"],
-    "还": ["偿还", "归还"],
-    "催": ["催促", "追"],
-}
+# # 自定义同义词映射
+# SYNONYMS = {
+#     "睡觉": ["休息", "睡一下"],
+#     "晚点": ["晚些", "过一会儿"],
+#     "打": ["联系", "打电话"],
+#     "还": ["偿还", "归还"],
+#     "催": ["催促", "追"],
+# }
 
 # 否定词集合（语序打乱时跳过）
 NEGATION_WORDS = set(["不", "没", "无", "别", "不要", "不用", "未曾"])
 
-# ================= 同音字替换器初始化 =================
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-HOMOPHONE_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'Homophone_tab.txt')
-ENTITY_FILE = os.path.join(BASE_DIR, 'resources', 'bank.txt')
-# 随机同义词替换增强器（使用自定义同义词表，可选）
-# 自定义同义词表路径（每行格式：id 同义词1 同义词2 ...）
-SIMILARWORD_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'synonyms.txt')
 
+# ================= 随机同义词替换器初始化 =================
+SIMILARWORD_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'synonyms.txt')
 if os.path.exists(SIMILARWORD_DICT_PATH):
     try:
         _similarword_aug = Similarword(base_file=SIMILARWORD_DICT_PATH, create_num=3, change_rate=0.2, seed=42)
@@ -43,17 +39,21 @@ else:
     print(f"[WARN] 自定义同义词词库不存在，使用默认词库")
     _similarword_aug = Similarword(create_num=3, change_rate=0.2, seed=42)
 
+# ================= 同音字替换器初始化 =================
+HOMOPHONE_DICT_PATH = os.path.join(BASE_DIR, 'resources', 'Homophone_tab.txt')
 if not os.path.exists(HOMOPHONE_DICT_PATH):
-    print(f"[WARN] 词库文件不存在，将使用默认词库（可能产生生僻字）")
+    print(f"[WARN] 同音词词库文件不存在，将使用默认词库（可能产生生僻字）")
     _homophone_aug = Homophone(create_num=3, change_rate=0.3, seed=42)
 else:
     try:
         _homophone_aug = Homophone(base_file=HOMOPHONE_DICT_PATH, create_num=3, change_rate=0.3, seed=42)
-        print(f"[INFO] 成功加载自定义词库: {HOMOPHONE_DICT_PATH}")
+        print(f"[INFO] 成功加载同音词自定义词库: {HOMOPHONE_DICT_PATH}")
     except Exception as e:
-        print(f"[ERROR] 加载自定义词库失败: {e}，使用默认词库")
+        print(f"[ERROR] 加载同音词自定义词库失败: {e}，使用默认词库")
         _homophone_aug = Homophone(create_num=3, change_rate=0.3, seed=42)
 
+# ================= 实体词替换器初始化 =================
+ENTITY_FILE = os.path.join(BASE_DIR, 'resources', 'bank.txt')
 if os.path.exists(ENTITY_FILE):
     try:
         _random_entity_aug = Randomword(base_file=ENTITY_FILE, create_num=3, change_rate=0.2, seed=42)
@@ -65,24 +65,23 @@ else:
     print(f"[WARN] 自定义实体词库不存在，使用默认词库")
     _random_entity_aug = Randomword(create_num=3, change_rate=0.2, seed=42)
 
-
-# 随机删除增强器
+# ================= 随机删除增强器 =================
 _random_delete_aug = RandomDeleteChar(create_num=3, change_rate=0.2, seed=42)
-# 随机实体替换增强器（模拟不同公司/机构名称）
-_random_entity_aug = Randomword(create_num=3, change_rate=0.2, seed=42)
+# # ================= 随机实体替换增强器（模拟不同公司/机构名称）=================
+# _random_entity_aug = Randomword(create_num=3, change_rate=0.2, seed=42)
 
 # ================= 独立增强函数（可叠加） =================
 
 def apply_insert_filler(sentence: str) -> str:
     """插入语气词（句首或句中）"""
     filler = random.choice(FILLERS)
-    if random.random() < 0.8:
+    if random.random() < 0.6:
         return f"{filler}，{sentence}"
     else:
         match = re.search(r'[，,。？!]', sentence)
         if match:
             pos = match.end()
-            if pos > len(sentence) * 0.8:
+            if pos > len(sentence) * 0.6:
                 return f"{filler}，{sentence}"
             return sentence[:pos] + filler + "，" + sentence[pos:]
         else:
@@ -92,15 +91,15 @@ def apply_insert_filler(sentence: str) -> str:
             else:
                 return f"{filler}，{sentence}"
 
-def apply_synonym_replace(sentence: str) -> str:
-    """自定义同义词替换"""
-    for word, syns in SYNONYMS.items():
-        if word in sentence:
-            new_word = random.choice(syns)
-            return sentence.replace(word, new_word, 1)
-    # 降级：插入语气词
-    filler = random.choice(FILLERS)
-    return f"{filler}，{sentence}"
+# def apply_synonym_replace(sentence: str) -> str:
+#     """自定义同义词替换"""
+#     for word, syns in SYNONYMS.items():
+#         if word in sentence:
+#             new_word = random.choice(syns)
+#             return sentence.replace(word, new_word, 1)
+#     # 降级：插入语气词
+#     filler = random.choice(FILLERS)
+#     return f"{filler}，{sentence}"
 
 def apply_stutter(sentence: str) -> str:
     """结巴模拟（重复第一个汉字）"""
@@ -224,18 +223,61 @@ def apply_similarword(sentence: str) -> str:
         print(f"同义词替换出错: {e}")
         return sentence
 
+# def apply_word_repetition(sentence: str) -> str:
+#     """
+#     随机重复句子中的一个词语
+#     """
+#     if not isinstance(sentence, str) or len(sentence.strip()) == 0:
+#         return sentence
+
+#     # 简单中文分词：将句子拆分为词语列表（此处以空格和标点为界限进行简单切分）
+#     words = re.split(r'([\u4e00-\u9fa5a-zA-Z0-9]+)', sentence)
+#     # 过滤掉空字符串和纯标点
+#     word_list = [w for w in words if w and not re.match(r'[^\u4e00-\u9fa5a-zA-Z0-9]', w)]
+    
+#     if len(word_list) < 2:  # 句子太短，不适合做词语重复
+#         return sentence
+
+#     # 随机选择一个词语进行重复
+#     chosen_word = random.choice(word_list)
+    
+#     # 将原句中的该词语替换为重复两次的形式
+#     new_sentence = sentence.replace(chosen_word, chosen_word + chosen_word, 1)
+#     return new_sentence
+
+
+def apply_word_repetition(sentence: str) -> str:
+    """
+    随机重复句子中的一个**词语**（而非整个短句）
+    规则：选取长度 1~3 的中文字符串作为候选，随机重复一次
+    """
+    if not isinstance(sentence, str) or len(sentence.strip()) == 0:
+        return sentence
+
+    # 找出所有长度 1~3 的中文词语（连续汉字）
+    candidates = re.findall(r'[\u4e00-\u9fa5]{1,3}', sentence)
+    # 过滤掉太常见的单字（可选），保留长度 2~3 的优先，但也允许单字
+    if not candidates:
+        return sentence
+
+    chosen = random.choice(candidates)
+    # 只替换第一次出现
+    new_sentence = sentence.replace(chosen, chosen + chosen, 1)
+    return new_sentence
+
 # ================= 多步叠加增强函数 =================
 
 # 可用的增强函数列表（可在此处增删或调整顺序）
 AUGMENT_FUNCS = [
     apply_insert_filler,
-    apply_synonym_replace,
+    # apply_synonym_replace,
     apply_stutter,
     apply_reorder,
     apply_homophone,
     apply_random_delete,
     apply_random_entity_replace,
     apply_similarword,
+    apply_word_repetition,
 ]
 
 def multi_step_augment(sentence: str, min_steps=1, max_steps=3) -> str:
