@@ -2,8 +2,11 @@ import os
 import random
 import re
 import pandas as pd
+import jieba
 from nlpcda import Homophone, RandomDeleteChar,Randomword,Similarword
 
+# 预先加载词典
+jieba.initialize()
 # ================= 可配置参数 =================
 NUM_VARIANTS = 3                    # 每个原句生成几个变体（默认）
 
@@ -90,16 +93,6 @@ def apply_insert_filler(sentence: str) -> str:
                 return words[0] + filler + "，" + " ".join(words[1:])
             else:
                 return f"{filler}，{sentence}"
-
-# def apply_synonym_replace(sentence: str) -> str:
-#     """自定义同义词替换"""
-#     for word, syns in SYNONYMS.items():
-#         if word in sentence:
-#             new_word = random.choice(syns)
-#             return sentence.replace(word, new_word, 1)
-#     # 降级：插入语气词
-#     filler = random.choice(FILLERS)
-#     return f"{filler}，{sentence}"
 
 def apply_stutter(sentence: str) -> str:
     """结巴模拟（重复第一个汉字）"""
@@ -225,43 +218,38 @@ def apply_similarword(sentence: str) -> str:
 
 # def apply_word_repetition(sentence: str) -> str:
 #     """
-#     随机重复句子中的一个词语
+#     随机重复句子中的一个**词语**（而非整个短句）
+#     规则：选取长度 1~3 的中文字符串作为候选，随机重复一次
 #     """
 #     if not isinstance(sentence, str) or len(sentence.strip()) == 0:
 #         return sentence
 
-#     # 简单中文分词：将句子拆分为词语列表（此处以空格和标点为界限进行简单切分）
-#     words = re.split(r'([\u4e00-\u9fa5a-zA-Z0-9]+)', sentence)
-#     # 过滤掉空字符串和纯标点
-#     word_list = [w for w in words if w and not re.match(r'[^\u4e00-\u9fa5a-zA-Z0-9]', w)]
-    
-#     if len(word_list) < 2:  # 句子太短，不适合做词语重复
+#     # 找出所有长度 1~3 的中文词语（连续汉字）
+#     candidates = re.findall(r'[\u4e00-\u9fa5]{1,3}', sentence)
+#     # 过滤掉太常见的单字（可选），保留长度 2~3 的优先，但也允许单字
+#     if not candidates:
 #         return sentence
 
-#     # 随机选择一个词语进行重复
-#     chosen_word = random.choice(word_list)
-    
-#     # 将原句中的该词语替换为重复两次的形式
-#     new_sentence = sentence.replace(chosen_word, chosen_word + chosen_word, 1)
+#     chosen = random.choice(candidates)
+#     # 只替换第一次出现
+#     new_sentence = sentence.replace(chosen, chosen + chosen, 1)
 #     return new_sentence
 
-
 def apply_word_repetition(sentence: str) -> str:
-    """
-    随机重复句子中的一个**词语**（而非整个短句）
-    规则：选取长度 1~3 的中文字符串作为候选，随机重复一次
-    """
+    """使用 jieba 分词后，随机重复句子中的一个多字词语,（长度≥2），避免与 stutter 功能重叠"""
     if not isinstance(sentence, str) or len(sentence.strip()) == 0:
         return sentence
 
-    # 找出所有长度 1~3 的中文词语（连续汉字）
-    candidates = re.findall(r'[\u4e00-\u9fa5]{1,3}', sentence)
-    # 过滤掉太常见的单字（可选），保留长度 2~3 的优先，但也允许单字
+    # 使用 jieba 分词
+    words = jieba.lcut(sentence)
+    
+    # 筛选出长度 >= 2 的词语（排除标点、单字词）
+    candidates = [w for w in words if len(w) >= 2 and re.match(r'[\u4e00-\u9fa5]+', w)]
     if not candidates:
         return sentence
 
     chosen = random.choice(candidates)
-    # 只替换第一次出现
+    # 替换第一次出现的该词语
     new_sentence = sentence.replace(chosen, chosen + chosen, 1)
     return new_sentence
 
